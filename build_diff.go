@@ -9,7 +9,8 @@ import (
 )
 
 var packageDiffs = make(map[int]string)
-var installsAndDeletes []string
+var installs []string
+var deletes []string
 
 func (o OS) getDiff() (string, error) {
 	out, err := exec.Command("dnf", "history", "list").CombinedOutput()
@@ -58,14 +59,13 @@ func (o OS) buildDiffMap() []string {
 
 		if strings.Contains(action, "install") || strings.Contains(action, "remove") {
 			actionandPkg := strings.Fields(action)
-			installsAndDeletes = append(installsAndDeletes, actionandPkg[1])
+			if strings.Contains(action, "install") {
+				installs = append(installs, "+"+actionandPkg[1])
+			} else if strings.Contains(action, "remove") {
+				deletes = append(deletes, "-"+actionandPkg[1])
+			}
 		}
 
-	}
-
-	if err := sc.Err(); err != nil {
-		//return fmt.Errorf("scan failed: %w", err)
-		return nil
 	}
 
 	//fmt.Println(baselinePackages)
@@ -74,10 +74,5 @@ func (o OS) buildDiffMap() []string {
 		return nil
 	}
 
-	fmt.Println("The following is the diff map:")
-
-	for k, v := range packageDiffs {
-		fmt.Printf("%d: %s\n", k, v)
-	}
-	return installsAndDeletes
+	return append(installs, deletes...) // Return a slice containing both installed and deleted packages
 }

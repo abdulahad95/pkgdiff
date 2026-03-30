@@ -13,6 +13,9 @@ docker build -t myapp:dev .
 docker run -d --name myapp-dev myapp:dev
 docker exec -it myapp-dev bash
 /usr/local/bin/app
+dnf install zsh
+dnf remove yum-utils
+/usr/local/bin/app
 ```
 
 ## TODO
