@@ -3,8 +3,10 @@ package main
 import (
 	"fmt"
 	"runtime"
+	"strings"
 
 	"github.com/fatih/color"
+	"github.com/rodaine/table"
 )
 
 type OS struct {
@@ -18,18 +20,33 @@ func main() {
 		return
 	} else {
 		os := OS{Name: runtime.GOOS}
-		fmt.Printf("The program is running on %s \n", runtime.GOOS)
+		//fmt.Printf("The program is running on %s \n", runtime.GOOS)
 		os.buildBaselineMap()
-		installsAndDeletes := os.buildDiffMap()
-		fmt.Println("The following are the packages that were installed or removed:")
-		for _, pkg := range installsAndDeletes {
-			if pkg[0] == '+' {
-				color.Green(pkg) // Print installed packages in green
-			} else if pkg[0] == '-' {
-				color.Red(pkg) // Print removed packages in red
-			} else {
-				fmt.Println(pkg) // Print any other packages without color
+		allpackages := os.buildDiffMap()
+
+		tabley := table.New("Name", "Action", "Date").WithPadding(3)
+
+		headerColor := color.New(color.FgCyan, color.Bold, color.Underline).SprintfFunc()
+		tabley.WithHeaderFormatter(headerColor)
+
+		addedColor := color.New(color.FgGreen).SprintfFunc()
+		removedColor := color.New(color.FgRed).SprintfFunc()
+
+		for _, pkg := range allpackages.Packages {
+			name := pkg.Name
+
+			switch {
+			case strings.Contains(pkg.Action, "install"):
+				name = addedColor("+%s", name)
+			case strings.Contains(pkg.Action, "remove"):
+				name = removedColor("-%s", name)
+			default:
+				name = pkg.Name
 			}
+			tabley.AddRow(name, pkg.Action, pkg.Date)
+
 		}
+
+		tabley.Print()
 	}
 }

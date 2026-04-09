@@ -47,10 +47,10 @@ func (o OS) buildBaselineMap() map[string]string {
 		return nil
 	}
 
-	fmt.Println("The following is the baseline map:")
-	fmt.Println(baselinePackages)
-	for k, v := range baselinePackages {
-		fmt.Printf("%s: %s\n", k, v)
-	}
+	//fmt.Println("The following is the baseline map:")
+	//fmt.Println(baselinePackages)
+	//for k, v := range baselinePackages {
+	//	fmt.Printf("%s: %s\n", k, v)
+	//}
 	return baselinePackages
 }

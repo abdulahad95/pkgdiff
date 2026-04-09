@@ -8,9 +8,17 @@ import (
 	"strings"
 )
 
+type Package struct {
+	Name   string
+	Action string
+	Date   string
+}
+
+type PackageList struct {
+	Packages []Package
+}
+
 var packageDiffs = make(map[int]string)
-var installs []string
-var deletes []string
 
 func (o OS) getDiff() (string, error) {
 	out, err := exec.Command("dnf", "history", "list").CombinedOutput()
@@ -21,11 +29,36 @@ func (o OS) getDiff() (string, error) {
 	return string(out), nil
 }
 
-func (o OS) buildDiffMap() []string {
+func (o OS) getPkgDeets(transactionID int) (version string, installDate string) {
+	pkgDetails, err := exec.Command("dnf", "history", "info", strconv.Itoa(transactionID)).CombinedOutput()
+	if err != nil {
+		// Include the command output because dnf often explains the failure there
+		return "Hi", "Nooo"
+	}
+	scanny := bufio.NewScanner(strings.NewReader(string(pkgDetails)))
+	for scanny.Scan() {
+		line := strings.TrimSpace(scanny.Text())
+		if strings.Contains(line, "Packages Altered:") {
+			scanny.Scan()
+			line = strings.TrimSpace(scanny.Text())
+			version = strings.Fields(line)[1]
+		} else if strings.Contains(line, "End time") {
+			line = strings.TrimSpace(scanny.Text())
+			installDate = strings.Split(line, " : ")[1]
+		}
+	}
+	return version, installDate
+
+}
+
+func (o OS) buildDiffMap() PackageList {
 	allDiffs, err := o.getDiff()
 	if err != nil {
-		return nil
+		return PackageList{}
 	}
+
+	var packagio Package
+	var packagelisty PackageList
 
 	sc := bufio.NewScanner(strings.NewReader(allDiffs))
 	for sc.Scan() {
@@ -41,14 +74,12 @@ func (o OS) buildDiffMap() []string {
 		}
 
 		fields := strings.Split(line, "|")
-		fmt.Printf("Fields: %v\n", fields) // Debugging output
 		if len(fields) < 2 {
 			continue // or return an error if you want strict parsing
 		}
 
 		transID := fields[0]
 		transID = strings.Trim(transID, " ")
-		fmt.Printf("Transaction ID: %v\n", transID) // Debugging output
 		transIDInt, err := strconv.Atoi(transID)
 		if err != nil {
 			fmt.Printf("Error converting transaction ID to integer: %v\n", err)
@@ -56,23 +87,19 @@ func (o OS) buildDiffMap() []string {
 		}
 		action := fields[1]
 		packageDiffs[transIDInt] = action
+		version, installDate := o.getPkgDeets(transIDInt)
 
-		if strings.Contains(action, "install") || strings.Contains(action, "remove") {
-			actionandPkg := strings.Fields(action)
-			if strings.Contains(action, "install") {
-				installs = append(installs, "+"+actionandPkg[1])
-			} else if strings.Contains(action, "remove") {
-				deletes = append(deletes, "-"+actionandPkg[1])
-			}
-		}
+		packagio.Name = version
+		packagio.Action = action
+		packagio.Date = installDate
+
+		packagelisty.Packages = append(packagelisty.Packages, packagio)
 
 	}
-
-	//fmt.Println(baselinePackages)
 	if len(packageDiffs) == 0 {
 		fmt.Println("No package differences found.")
-		return nil
+		return PackageList{}
 	}
 
-	return append(installs, deletes...) // Return a slice containing both installed and deleted packages
+	return packagelisty
 }
